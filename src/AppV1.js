@@ -51,34 +51,58 @@ const average = (arr) =>
   arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
 
 const KEY = "9d526342";
-const query = "interstellar";
+// const query = "sfsd";
 
 export default function App() {
   const [movies, setMovies] = useState([]);
   const [watched, setWatched] = useState([]);
+  const [isLoading, setisLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const tempQuery = "interstellar";
 
   useEffect(() => {
     async function fetMovies() {
-      const response = await fetch(
-        `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`
-      );
-      const dataRespone = await response.json();
-      setMovies(dataRespone.Search);
-      return () => console.log("clean up");
+      try {
+        setisLoading(true);
+        setError("");
+        const response = await fetch(
+          `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`
+        );
+
+        if (!response.ok) throw new Error("Something went wrong! ");
+        const dataRespone = await response.json();
+        if (dataRespone.Response === "False")
+          throw new Error("Movie not found");
+        setMovies(dataRespone.Search);
+        setisLoading(false);
+      } catch (e) {
+        // console.error(e.message);
+        setError(e.message);
+      } finally {
+        setisLoading(false);
+      }
+    }
+    if (query.length < 3) {
+      setMovies([]);
+      setError("");
+      return;
     }
     fetMovies();
-  }, []);
+  }, [query]);
 
   return (
     <>
       <NavBar movies={movies}>
-        <Search />
+        <Search query={query} setQuery={setQuery} />
         <NumResults movies={movies} />
       </NavBar>
 
       <Main movies={movies}>
         <Box>
-          <MoviesList movies={movies} />
+          {isLoading && <Loader />}
+          {error && <ErrorMessage message={error} />}
+          {!isLoading && !error && <MoviesList movies={movies} />}
         </Box>
         <Box>
           <WatchedSummary watched={watched} />
@@ -88,6 +112,18 @@ export default function App() {
     </>
   );
 }
+function Loader() {
+  return <div className="loader"></div>;
+}
+
+function ErrorMessage({ message }) {
+  return (
+    <p className="error">
+      <span>🛑</span> {message}
+    </p>
+  );
+}
+
 function NavBar({ children }) {
   return (
     <nav className="nav-bar">
@@ -97,8 +133,7 @@ function NavBar({ children }) {
   );
 }
 
-function Search() {
-  const [query, setQuery] = useState("");
+function Search({ query, setQuery }) {
   return (
     <input
       className="search"
